@@ -148,11 +148,19 @@ extension IAPService: SKPaymentTransactionObserver {
     print("商品交易complete...")
     deliverPurchaseNotificationFor(identifier: transaction.payment.productIdentifier)
     SKPaymentQueue.default().finishTransaction(transaction)
-    appStoreReceiptValidation()
+    validateReceipt()
   }
   
   //驗證憑據，獲取到蘋果返回的交易憑據
-  private func appStoreReceiptValidation() {
+  private func validateReceipt() {
+    
+    // It’s a special string key, which a developer uses to validate receipts with auto-renewable subscriptions.
+    // You will put Shared Secret into HTTPS request parameters.
+    //
+    // Go to App Store Connect, open your app,
+    // then go to “Functions” and in “In-App Purchases” tab you will see “App-Specific Shared Secret” button.
+    // Generate a new key, if it doesn’t exist.
+    let sharedSecret = "YOUR_SHARED_SECRET"
     
     #if DEBUG
     let verifyReceiptUrlString = "https://sandbox.itunes.apple.com/verifyReceipt"
@@ -167,7 +175,7 @@ extension IAPService: SKPaymentTransactionObserver {
     else { return }
     
     let requestData : [String : Any] = ["receipt-data" : receiptString,
-                                        "password" : "YOUR_SHARED_SECRET",
+                                        "password" : sharedSecret,
                                         "exclude-old-transactions" : false]
     let httpBody = try? JSONSerialization.data(withJSONObject: requestData, options: [])
     
@@ -177,11 +185,10 @@ extension IAPService: SKPaymentTransactionObserver {
     request.httpBody = httpBody
     URLSession.shared.dataTask(with: request)  { (data, response, error) in
       
-      do {
-        if let data = data, let str = try JSONSerialization.jsonObject(with: data, options:.allowFragments) as? String {
+      DispatchQueue.main.async {
+        if let data = data, let str = try? JSONSerialization.jsonObject(with: data, options:.allowFragments) as? String {
           print(str)
         }
-      } catch {
       }
       
     }.resume()
